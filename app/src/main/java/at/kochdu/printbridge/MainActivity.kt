@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
         // Welche Seite geladen wird:
         const val START_URL = "https://www.kochdu.at/kitchen"
         // Druckbreite in Punkten: 58mm = 384, 80mm = 576. V-Serie meist 58mm.
-        const val PRINT_WIDTH = 384
+        const val PRINT_WIDTH = 576
     }
 
     private lateinit var web: WebView
