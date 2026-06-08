@@ -2,8 +2,10 @@ package at.kochdu.printbridge
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.util.Base64
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -74,9 +76,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class Bridge {
+        // Alt: HTML wird in der App gerendert (Fallback fuer aeltere Seiten).
         @JavascriptInterface
         fun printHtml(html: String) {
             ui.post { renderAndPrint(html) }
+        }
+
+        // Neu (duenne Huelle): Die Webseite liefert ein fertiges PNG (Base64),
+        // die App druckt es nur noch. So koennen alle Bon-Aenderungen web-seitig
+        // gemacht werden, ohne die App neu zu installieren.
+        @JavascriptInterface
+        fun printBase64(dataUrlOrB64: String) {
+            ui.post { printBase64Image(dataUrlOrB64) }
+        }
+    }
+
+    private fun printBase64Image(input: String) {
+        val svc = printer
+        if (svc == null) {
+            Toast.makeText(this, "Drucker noch nicht verbunden", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val b64 = if (input.contains(",")) input.substringAfter(",") else input
+            val bytes = Base64.decode(b64, Base64.DEFAULT)
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            if (bmp == null) {
+                Toast.makeText(this, "Druckbild ungueltig", Toast.LENGTH_SHORT).show()
+                return
+            }
+            svc.printBitmap(bmp, null)
+            svc.lineWrap(2, null)
+            try { svc.cutPaper(null) } catch (_: Exception) { /* Handheld hat keinen Cutter */ }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Druckfehler: " + e.message, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -105,8 +138,9 @@ class MainActivity : AppCompatActivity() {
                 // kurz warten bis Layout/Schriften fertig sind, dann Bitmap erzeugen
                 ui.postDelayed({
                     try {
-                        // Tatsaechliche Inhaltshoehe (nicht die View-Hoehe) verwenden -> tighter Bon
-                        val h = (view.contentHeight * dens).toInt().coerceIn(1, 20000)
+                        // Grosszuegig hoch rendern; ueberschuessiger Weissraum wird danach
+                        // automatisch weggeschnitten -> Bon ist nur so lang wie der Inhalt.
+                        val h = ((view.contentHeight * dens).toInt() + (200 * dens).toInt()).coerceIn(1, 30000)
                         view.measure(
                             View.MeasureSpec.makeMeasureSpec(renderW, View.MeasureSpec.EXACTLY),
                             View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)
@@ -116,23 +150,51 @@ class MainActivity : AppCompatActivity() {
                         val canvas = Canvas(base)
                         canvas.drawColor(Color.WHITE)
                         view.draw(canvas)
+                        // Leeren Rand oben/unten wegschneiden
+                        val trimmed = trimVertical(base)
                         // exakt auf Druckerbreite skalieren
-                        val outH = (h.toLong() * PRINT_WIDTH / renderW).toInt().coerceAtLeast(1)
-                        val scaled = if (renderW == PRINT_WIDTH) base
-                                     else Bitmap.createScaledBitmap(base, PRINT_WIDTH, outH, true)
+                        val outH = (trimmed.height.toLong() * PRINT_WIDTH / trimmed.width).toInt().coerceAtLeast(1)
+                        val scaled = if (trimmed.width == PRINT_WIDTH) trimmed
+                                     else Bitmap.createScaledBitmap(trimmed, PRINT_WIDTH, outH, true)
                         // reines Schwarz/Weiss fuer scharfen Thermodruck
                         val mono = toMonochrome(scaled)
 
                         svc.printBitmap(mono, null)
-                        svc.lineWrap(3, null)
+                        svc.lineWrap(2, null)
                         try { svc.cutPaper(null) } catch (_: Exception) { /* Handheld hat keinen Cutter */ }
                     } catch (e: Exception) {
                         Toast.makeText(this@MainActivity, "Druckfehler: " + e.message, Toast.LENGTH_LONG).show()
                     }
-                }, 400)
+                }, 450)
             }
         }
         renderer.loadDataWithBaseURL(null, cleanedHtml, "text/html", "UTF-8", null)
+    }
+
+    /** Schneidet leere (weisse) Zeilen oben und unten weg, damit der Bon nicht zu lang ist. */
+    private fun trimVertical(src: Bitmap): Bitmap {
+        val w = src.width
+        val h = src.height
+        val row = IntArray(w)
+        fun hasInk(y: Int): Boolean {
+            src.getPixels(row, 0, w, 0, y, w, 1)
+            for (p in row) {
+                val r = (p shr 16) and 0xFF
+                val g = (p shr 8) and 0xFF
+                val b = p and 0xFF
+                if (r < 220 || g < 220 || b < 220) return true
+            }
+            return false
+        }
+        var top = 0
+        while (top < h && !hasInk(top)) top++
+        var bottom = h - 1
+        while (bottom > top && !hasInk(bottom)) bottom--
+        if (top >= bottom) return src
+        val pad = (10 * resources.displayMetrics.density).toInt()
+        val y0 = (top - pad).coerceAtLeast(0)
+        val y1 = (bottom + pad).coerceAtMost(h - 1)
+        return Bitmap.createBitmap(src, 0, y0, w, y1 - y0 + 1)
     }
 
     /** Wandelt ein Bild in reines Schwarz/Weiss (Schwellwert) fuer scharfen Thermodruck. */
