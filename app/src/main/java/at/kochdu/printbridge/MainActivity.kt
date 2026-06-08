@@ -23,8 +23,12 @@ class MainActivity : AppCompatActivity() {
     companion object {
         // Welche Seite geladen wird:
         const val START_URL = "https://www.kochdu.at/kitchen"
-        // Druckbreite in Punkten: 58mm = 384, 80mm = 576. V-Serie meist 58mm.
+        // Druckbreite in Punkten: 58mm = 384, 80mm = 576.
         const val PRINT_WIDTH = 576
+        // Natuerliche Breite des kochdu-Bons in CSS-Pixeln (~76mm @ 96dpi).
+        // Der Bon ist in mm ausgelegt; wir skalieren ihn auf PRINT_WIDTH hoch,
+        // damit er die volle Papierbreite fuellt (sonst nur halbe Seite).
+        const val DESIGN_WIDTH = 287
     }
 
     private lateinit var web: WebView
@@ -83,9 +87,14 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Drucker noch nicht verbunden", Toast.LENGTH_SHORT).show()
             return
         }
+        // langen Leerraum am Ende des Bons kuerzen (Bon-Vorlage hat einen 25mm-Abstandhalter)
+        val cleanedHtml = html.replace("height:25mm", "height:4mm")
         val renderer = WebView(this)
         renderer.settings.javaScriptEnabled = false
-        renderer.setInitialScale(100)
+        renderer.settings.useWideViewPort = false
+        renderer.settings.loadWithOverviewMode = false
+        // Den mm-Bon auf die volle Druckerbreite hochskalieren (sonst nur halbe Seite).
+        renderer.setInitialScale(PRINT_WIDTH * 100 / DESIGN_WIDTH)
         renderer.layout(0, 0, PRINT_WIDTH, 4000)
         renderer.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
@@ -112,6 +121,6 @@ class MainActivity : AppCompatActivity() {
                 }, 350)
             }
         }
-        renderer.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+        renderer.loadDataWithBaseURL(null, cleanedHtml, "text/html", "UTF-8", null)
     }
 }
