@@ -1,0 +1,36 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'at.kochdu.printbridge'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "at.kochdu.printbridge"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug   // erlaubt "Release" ohne eigenen Keystore zum Testen
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    // Sunmi eingebauter Drucker (offizielles SDK). Falls die Version nicht aufloest,
+    // aktuelle Koordinaten auf developer.sunmi.com pruefen.
+    implementation 'com.sunmi:printerlibrary:1.0.18'
+}
