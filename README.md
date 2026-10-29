@@ -58,3 +58,7 @@ festlegen (Sunmi hat dafür einen Lockscreen/Kiosk-Modus).
 Sag mir Bescheid – dann ergänze ich kochdu so, dass **neue Bestellungen
 automatisch** gedruckt werden, sobald sie reinkommen (sobald diese App läuft),
 ganz ohne Tippen.
+
+## Hinweis zur Erstellung
+
+Bei der Entwicklung dieses Projekts wurden teilweise KI-gestützte Werkzeuge eingesetzt. Der Code wurde geprüft.
