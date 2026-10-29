@@ -14,6 +14,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          # Standard 'tools platform-tools' bricht ab: das Paket 'tools' gibt es im aktuellen SDK nicht mehr
+          packages: 'platform-tools'
       - uses: gradle/actions/setup-gradle@v4
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.7
