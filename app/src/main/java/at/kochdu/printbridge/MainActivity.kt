@@ -68,6 +68,8 @@ class MainActivity : AppCompatActivity() {
         // Diese Bruecke ruft kochdu auf: window.SunmiPrinter.printHtml(html)
         web.addJavascriptInterface(Bridge(), "SunmiPrinter")
         setContentView(web)
+        // Bildschirm bleibt an, solange die Küche offen ist – sonst sperrt sich das Gerät und es kommen keine Bestellungen mehr an
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         web.loadUrl(START_URL)
     }
 
