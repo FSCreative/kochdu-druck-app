@@ -11,11 +11,29 @@ android {
         applicationId "at.kochdu.printbridge"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        // Jeder GitHub-Build bekommt eine höhere Nummer – daran erkennt die App, dass es ein Update gibt
+        versionCode((System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger())
+        versionName "1." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+    }
+
+    // Fester Signierschlüssel (GitHub-Secrets KEYSTORE_B64/KEYSTORE_PASSWORD). Android installiert ein Update
+    // nur, wenn es mit demselben Schlüssel signiert ist wie die installierte App.
+    def ksFile = System.getenv("KEYSTORE_FILE")
+    signingConfigs {
+        kochdu {
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias "kochdu"
+                keyPassword System.getenv("KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            if (ksFile) signingConfig signingConfigs.kochdu
+        }
         release {
             minifyEnabled false
             signingConfig signingConfigs.debug   // erlaubt "Release" ohne eigenen Keystore zum Testen
