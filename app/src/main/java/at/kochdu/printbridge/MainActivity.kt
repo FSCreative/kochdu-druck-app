@@ -71,6 +71,15 @@ class MainActivity : AppCompatActivity() {
         // Bildschirm bleibt an, solange die Küche offen ist – sonst sperrt sich das Gerät und es kommen keine Bestellungen mehr an
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         web.loadUrl(START_URL)
+        // Läuft die App tagelang durch, trotzdem regelmäßig nach Updates schauen
+        ui.post(object : Runnable {
+            override fun run() { Updater.check(this@MainActivity); ui.postDelayed(this, 60 * 60 * 1000L) }
+        })
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Updater.check(this)
     }
 
     override fun onBackPressed() {

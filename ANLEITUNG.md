@@ -69,3 +69,13 @@ aktuelle Version anpassen (siehe developer.sunmi.com → Printer SDK).
 ## Tipp
 Du kannst „Kochdu Druck“ in den Sunmi-Einstellungen als **Start-/Kiosk-App**
 festlegen, damit das Gerät direkt in der Küche landet.
+
+## Automatische Updates
+Die App prüft beim Öffnen und danach alle 6 Stunden das GitHub-Release
+**„latest“**. Gibt es eine neuere Version, lädt sie diese herunter und Android
+fragt am Gerät **„Aktualisieren?“** – einmal tippen, fertig.
+- Beim ersten Update fragt Android einmalig nach **„Aus dieser Quelle zulassen“**.
+- Nur Builds von `main` werden veröffentlicht.
+- Alle Versionen müssen mit demselben Schlüssel signiert sein (GitHub-Secrets
+  `KEYSTORE_B64` und `KEYSTORE_PASSWORD`). Geht der Schlüssel verloren, muss die
+  App auf jedem Gerät deinstalliert und neu installiert werden.

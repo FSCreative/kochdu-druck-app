@@ -20,16 +20,35 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.7
+      - name: Keystore bereitstellen
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/kochdu.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/kochdu.jks" >> "$GITHUB_ENV"
+          elif [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "::error::Secret KEYSTORE_B64 fehlt – ohne festen Schlüssel könnten die Geräte das Update nicht installieren"; exit 1
+          fi
       - name: Build debug APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: version.json für die Update-Prüfung
+        run: |
+          echo "{\"versionCode\": $GITHUB_RUN_NUMBER}" > version.json
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: kochdu-druck-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+      # Nur main veröffentlicht – die Geräte holen sich "latest" automatisch als Update
       - name: Release APK (latest)
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Kochdu Drucker-App
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            version.json
