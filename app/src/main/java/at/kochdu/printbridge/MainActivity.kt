@@ -11,7 +11,11 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.webkit.JavascriptInterface
+import android.net.ConnectivityManager
+import android.net.Network
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -36,6 +40,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private var printer: SunmiPrinterService? = null
     private val ui = Handler(Looper.getMainLooper())
+    // Seite konnte nicht geladen werden (kein Internet / WLAN weg) → automatisch neu versuchen
+    private var offline = false
+    private val retry = Runnable { if (offline) web.loadUrl(START_URL) }
 
     private val printerCallback = object : InnerPrinterCallback() {
         override fun onConnected(service: SunmiPrinterService) {
@@ -63,7 +70,21 @@ class MainActivity : AppCompatActivity() {
             databaseEnabled = true
             cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
         }
-        web.webViewClient = WebViewClient()
+        web.webViewClient = object : WebViewClient() {
+            // onPageFinished kommt auch nach einem Ladefehler – deshalb merken, ob dieser Ladevorgang fehlgeschlagen ist
+            private var mainError = false
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                if (url != null && url.startsWith("https://")) mainError = false
+            }
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (!request.isForMainFrame) return
+                mainError = true
+                showOffline(error.description?.toString() ?: "")
+            }
+            override fun onPageFinished(view: WebView, url: String?) {
+                if (url != null && url.startsWith("https://") && !mainError) { offline = false; ui.removeCallbacks(retry) }
+            }
+        }
         web.webChromeClient = WebChromeClient()
         // Diese Bruecke ruft kochdu auf: window.SunmiPrinter.printHtml(html)
         web.addJavascriptInterface(Bridge(), "SunmiPrinter")
@@ -71,10 +92,29 @@ class MainActivity : AppCompatActivity() {
         // Bildschirm bleibt an, solange die Küche offen ist – sonst sperrt sich das Gerät und es kommen keine Bestellungen mehr an
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         web.loadUrl(START_URL)
+        // Kommt das Netz zurück, sofort neu laden statt auf den nächsten Versuch zu warten
+        try {
+            (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) { ui.post { if (offline) { ui.removeCallbacks(retry); web.loadUrl(START_URL) } } }
+            })
+        } catch (_: Exception) {}
         // Läuft die App tagelang durch, trotzdem regelmäßig nach Updates schauen
         ui.post(object : Runnable {
             override fun run() { Updater.check(this@MainActivity); ui.postDelayed(this, 60 * 60 * 1000L) }
         })
+    }
+
+    // Statt der Android-Fehlerseite (bleibt sonst für immer stehen) eine eigene Seite zeigen und alle 10 s neu versuchen
+    private fun showOffline(reason: String) {
+        offline = true
+        val html = "<html><body style='font-family:sans-serif;text-align:center;padding:60px 24px;background:#fff7ed;color:#7c2d12'>" +
+            "<div style='font-size:64px'>📡</div><h1 style='font-size:30px'>Keine Internetverbindung</h1>" +
+            "<p style='font-size:20px'>Das Gerät erreicht kochdu gerade nicht – es kommen keine Bestellungen an.<br>Bitte WLAN bzw. Router prüfen.</p>" +
+            "<p style='font-size:16px;color:#9a3412'>Neuer Versuch automatisch alle 10 Sekunden …</p>" +
+            "<p style='font-size:12px;color:#c2410c'>" + android.text.TextUtils.htmlEncode(reason) + "</p></body></html>"
+        web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+        ui.removeCallbacks(retry)
+        ui.postDelayed(retry, 10_000L)
     }
 
     override fun onResume() {
