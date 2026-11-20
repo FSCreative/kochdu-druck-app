@@ -21,11 +21,21 @@ import android.provider.Settings
 // beim nächsten Entsperren wieder nach vorne.
 // Aktiv nur auf freigeschalteten Geräten: die Druck-App ist dort der Startbildschirm (Home). Nur so darf Android sie
 // aus dem Hintergrund nach vorne holen (Sunmi setzt "Über anderen Apps anzeigen" bei jedem Neustart zurück).
-// Freischalten per ADB:
-//   adb shell pm enable at.kochdu.printbridge/.KioskHome
+// Freischalten per ADB (die App schaltet ihren Home-Eintrag selbst um – die Shell darf das auf Sunmi nicht):
+//   adb shell am start -n at.kochdu.printbridge/.MainActivity --es kiosk on
 //   adb shell cmd package set-home-activity at.kochdu.printbridge/.KioskHome
-// Zurück zum normalen Startbildschirm:  adb shell pm disable at.kochdu.printbridge/.KioskHome
+// Ausschalten:  adb shell am start -n at.kochdu.printbridge/.MainActivity --es kiosk off
 object Kiosk {
+    // Extra "kiosk" = on/off aus dem Start-Intent übernehmen
+    fun applyIntent(ctx: Context, intent: Intent?) {
+        val v = intent?.getStringExtra("kiosk") ?: return
+        val on = v == "on"
+        ctx.packageManager.setComponentEnabledSetting(ComponentName(ctx, "at.kochdu.printbridge.KioskHome"),
+            if (on) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP)
+        if (on) start(ctx) else ctx.stopService(Intent(ctx, KioskService::class.java))
+    }
+
     fun enabled(ctx: Context): Boolean {
         val homeAlias = ComponentName(ctx, "at.kochdu.printbridge.KioskHome")
         val aliasOn = ctx.packageManager.getComponentEnabledSetting(homeAlias) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
