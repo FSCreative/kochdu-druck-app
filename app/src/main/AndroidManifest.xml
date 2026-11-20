@@ -35,6 +35,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Kiosk: als Startbildschirm (Home) wählbar – standardmäßig AUS, pro Gerät per ADB einschalten (siehe Kiosk.kt) -->
+        <activity-alias
+            android:name=".KioskHome"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <receiver android:name=".InstallResultReceiver" android:exported="false" />
 
         <receiver android:name=".BootReceiver" android:exported="true">

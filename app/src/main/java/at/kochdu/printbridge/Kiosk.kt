@@ -5,9 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -17,10 +19,18 @@ import android.provider.Settings
 // Kiosk-Modus (pro Gerät freischalten): kochdu geht nach dem Neustart und nach dem Entsperren / Bildschirm-An
 // automatisch auf. Man kann die App trotzdem schließen und z. B. in die Einstellungen wechseln – sie kommt erst
 // beim nächsten Entsperren wieder nach vorne.
-// Aktiv nur, wenn das Gerät der App "Über anderen Apps anzeigen" erlaubt (nötig, damit Android den Start aus dem
-// Hintergrund zulässt). Freischalten per ADB:  adb shell appops set at.kochdu.printbridge SYSTEM_ALERT_WINDOW allow
+// Aktiv nur auf freigeschalteten Geräten: die Druck-App ist dort der Startbildschirm (Home). Nur so darf Android sie
+// aus dem Hintergrund nach vorne holen (Sunmi setzt "Über anderen Apps anzeigen" bei jedem Neustart zurück).
+// Freischalten per ADB:
+//   adb shell pm enable at.kochdu.printbridge/.KioskHome
+//   adb shell cmd package set-home-activity at.kochdu.printbridge/.KioskHome
+// Zurück zum normalen Startbildschirm:  adb shell pm disable at.kochdu.printbridge/.KioskHome
 object Kiosk {
-    fun enabled(ctx: Context): Boolean = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(ctx)
+    fun enabled(ctx: Context): Boolean {
+        val homeAlias = ComponentName(ctx, "at.kochdu.printbridge.KioskHome")
+        val aliasOn = ctx.packageManager.getComponentEnabledSetting(homeAlias) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        return aliasOn || (Build.VERSION.SDK_INT >= 23 && Settings.canDrawOverlays(ctx))
+    }
 
     fun start(ctx: Context) {
         if (!enabled(ctx)) return
