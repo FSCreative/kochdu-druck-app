@@ -55,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Kiosk.applyIntent(this, intent)
+        Kiosk.start(this)
 
         // Verbindung zum eingebauten Sunmi-Drucker aufbauen
         try {
